@@ -1,0 +1,39 @@
+FROM nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04
+
+# Install curl and uv (Python managed by uv)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && install -m 0755 /root/.local/bin/uv /usr/local/bin/uv
+
+WORKDIR /app
+
+# Create non-root user
+RUN useradd -m -u 10001 -s /usr/sbin/nologin appuser
+
+# Create directories with proper ownership
+RUN mkdir -p /home/appuser/.cache/huggingface /output/audio \
+    && chown -R 10001:10001 /home/appuser/.cache /output
+
+COPY pyproject.toml uv.lock /app/
+RUN chown -R 10001:10001 /app
+
+USER appuser
+
+# Install dependencies
+RUN UV_PYTHON=3.13 uv sync --no-dev --no-install-project
+
+# Install CUDA torch (force reinstall to get GPU version)
+RUN UV_PYTHON=3.13 uv pip install --reinstall "torch>=2.8.0" --extra-index-url https://download.pytorch.org/whl/cu131
+
+COPY --chown=10001:10001 src /app/src
+RUN UV_PYTHON=3.13 uv sync --no-dev
+
+# Reinstall CUDA torch after final sync (which downgrades to CPU version)
+RUN UV_PYTHON=3.13 uv pip install --reinstall "torch>=2.8.0" --extra-index-url https://download.pytorch.org/whl/cu131
+
+ENV PATH="/app/.venv/bin:${PATH}"
+
+CMD ["voxtral-wyoming"]

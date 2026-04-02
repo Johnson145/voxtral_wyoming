@@ -94,6 +94,25 @@ Audio files are automatically saved to `./output/audio/` on your host machine wi
 docker build -t voxtral-wyoming:latest .
 ```
 
+#### Building on NVIDIA Spark DGX (GB10)
+
+For NVIDIA Spark DGX systems with GB10 GPUs, use the special `Dockerfile.spark`:
+
+```bash
+docker build -f Dockerfile.spark -t voxtral-wyoming:cuda .
+```
+
+This Dockerfile uses the `nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04` base image and installs PyTorch with CUDA 13.1 support to ensure proper GB10 GPU detection.
+
+**Running on Spark DGX:**
+
+```bash
+docker run --rm --gpus all --ipc=host \
+  -p 10300:10300 \
+  -v $HOME/.cache/huggingface:/home/appuser/.cache/huggingface \
+  voxtral-wyoming:cuda
+```
+
 ### Running the Container
 
 ```bash
@@ -108,12 +127,12 @@ docker run --rm -it \
   voxtral-wyoming:latest
 
 # With GPU support (NVIDIA)
-docker run --rm -it --gpus all \
+docker run --rm -it --gpus all --ipc=host \
   -p 10300:10300 \
   -v /path/to/voxtral/models:/models:ro \
   -e MODEL_ID=/models/Voxtral-Mini-4B-Realtime-2602 \
   -e DEVICE=cuda \
-  voxtral-wyoming:latest
+  voxtral-wyoming:cuda
 ```
 
 ## Home Assistant Integration
@@ -302,6 +321,14 @@ If CUDA/GPU is not detected:
 2. Ensure PyTorch with CUDA support is installed: `pip install torch --index-url https://download.pytorch.org/whl/cu121`
 3. Check GPU availability: `python -c "import torch; print(torch.cuda.is_available())"`
 4. The server will automatically fall back to CPU if GPU initialization fails
+
+#### Spark DGX (GB10) GPU Troubleshooting
+
+For Spark DGX systems with GB10 GPUs:
+1. Use `Dockerfile.spark` instead of the default `Dockerfile`
+2. Ensure you're using `--gpus all` flag when running the container
+3. Check that NVIDIA Container Toolkit is configured: `docker info | grep -i runtime`
+4. Verify GPU detection: `docker run --rm --gpus all voxtral-wyoming:cuda python -c "import torch; print(torch.cuda.get_device_name(0))"`
 
 ### CUDA Compute Capability Error
 
