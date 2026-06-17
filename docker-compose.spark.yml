@@ -1,0 +1,21 @@
+# Override for NVIDIA Spark DGX (GB10 / Blackwell), which needs a PyTorch build with CUDA 13 / SM_121
+# support that the default image's torch wheel doesn't include.
+#
+# Layers on top of docker-compose.gpu.yml (which reserves the GPU) — pass all three files, in order:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.spark.yml up --build
+#
+# Values below are confirmed working on Spark DGX hardware; adjust for other GPU architectures.
+services:
+  voxtral-wyoming:
+    build:
+      args:
+        BASE_IMAGE: nvcr.io/nvidia/cuda:13.0.1-runtime-ubuntu22.04
+        EXTRA_APT_PACKAGES: build-essential
+        UV_PYTHON: "3.11"
+        TORCH_CUDA_INDEX: https://download.pytorch.org/whl/cu130
+        TORCH_SPEC: torch==2.11.0+cu130
+    image: voxtral-wyoming:spark
+    # Avoids shared-memory limits during inference
+    ipc: host
+    environment:
+      - DEVICE=cuda

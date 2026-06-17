@@ -116,6 +116,40 @@ docker run --rm -it --gpus all \
   voxtral-wyoming:latest
 ```
 
+## NVIDIA Spark DGX (GB10)
+
+The default image already supports CPU and standard NVIDIA GPUs. NVIDIA Spark DGX (GB10 / Blackwell)
+is special: it needs a PyTorch build with CUDA 13 / SM_121 support that the stock torch wheel doesn't
+include. The same `Dockerfile` produces that build from optional build args — the working set of
+values lives in [`docker-compose.spark.yml`](docker-compose.spark.yml) and is confirmed on Spark DGX
+hardware. Adjust the CUDA index / torch version for other GPU architectures.
+
+**With Docker Compose (recommended)** — layer the Spark override on top of the GPU override (which
+reserves the GPU), passing all three files in order:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml -f docker-compose.spark.yml up --build
+```
+
+**Without Docker Compose** — pass the same build args (see `docker-compose.spark.yml`) to `docker build`,
+then run with `--gpus all` (`--ipc=host` avoids shared-memory limits):
+
+```bash
+docker build \
+  --build-arg BASE_IMAGE=nvcr.io/nvidia/cuda:13.0.1-runtime-ubuntu22.04 \
+  --build-arg EXTRA_APT_PACKAGES="build-essential" \
+  --build-arg UV_PYTHON=3.11 \
+  --build-arg TORCH_CUDA_INDEX=https://download.pytorch.org/whl/cu130 \
+  --build-arg TORCH_SPEC="torch==2.11.0+cu130" \
+  -t voxtral-wyoming:spark .
+
+docker run --rm --gpus all --ipc=host \
+  -p 10300:10300 \
+  -v $HOME/.cache/huggingface:/home/appuser/.cache/huggingface \
+  -e DEVICE=cuda \
+  voxtral-wyoming:spark
+```
+
 ## Home Assistant Integration
 
 First of all, make sure that you've started the Voxtral Wyoming server as described above.
